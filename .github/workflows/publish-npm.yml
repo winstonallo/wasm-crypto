@@ -1,0 +1,60 @@
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (optional, uses package.json version if not provided)'
+        required: false
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        registry-url: 'https://registry.npmjs.org'
+        
+    - name: Install wasm-pack
+      run: |
+        WASM_PACK_VERSION=0.13.1
+        curl -L "https://github.com/rustwasm/wasm-pack/releases/download/v${WASM_PACK_VERSION}/wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl.tar.gz" | tar -xz
+        sudo mv wasm-pack-v${WASM_PACK_VERSION}-x86_64-unknown-linux-musl/wasm-pack /usr/local/bin/
+        
+    - name: Build WebAssembly package
+      run: |
+        wasm-pack build --target web --out-dir pkg --release
+        
+    - name: Update version if specified
+      if: ${{ github.event.inputs.version }}
+      run: |
+        cd pkg
+        npm version ${{ github.event.inputs.version }} --no-git-tag-version
+        
+    - name: Check npm authentication
+      run: |
+        cd pkg
+        npm whoami
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        
+    - name: Publish to npm
+      run: |
+        cd pkg
+        npm publish --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
