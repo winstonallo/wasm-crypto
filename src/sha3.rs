@@ -16,3 +16,8 @@ pub fn sha3_512(data: &[u8]) -> Vec<u8> {
     hasher.update(data);
     hasher.finalize().to_vec()
 }
+
+#[test]
+fn testst() {
+    eprintln!("{:02x?}", sha3_512(b"as"));
+}
